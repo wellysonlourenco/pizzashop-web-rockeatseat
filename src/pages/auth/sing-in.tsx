@@ -1,9 +1,11 @@
+import { singIn } from "@/api/sing-in";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMutation } from "@tanstack/react-query";
 import { Helmet } from "react-helmet-async";
 import { useForm } from "react-hook-form";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -15,23 +17,39 @@ const singInForm = z.object({
 type SingInForm = z.infer<typeof singInForm>
 
 
-export function SignIn() {
-    const { register, handleSubmit, formState: { isSubmitted } } = useForm<SingInForm>();
+export function SingIn() {
+    const [searchParams] = useSearchParams();
 
-    async function handleSignIn(data: SingInForm) {
 
-        console.log(data);
+    const { register, handleSubmit, formState: { isSubmitted } } = useForm<SingInForm>({
+        defaultValues: {
+            email: searchParams.get('email') ?? ''
+        }
+    });
 
-        await new Promise((resolve) => setTimeout(resolve, 2000));
+    const { mutateAsync: authenticate } = useMutation({
+        mutationFn: singIn,
+    })
 
-        toast.success('Enviamos um link de autenticação para o seu e-mail!',
-            {
-                action: {
-                    label: 'Reenviar e-mail',
-                    onClick: () => handleSignIn(data),
+
+    async function handleSingIn(data: SingInForm) {
+
+        try {
+
+            await authenticate({email: data.email});
+
+            toast.success('Enviamos um link de autenticação para o seu e-mail!',
+                {
+                    action: {
+                        label: 'Reenviar e-mail',
+                        onClick: () => handleSingIn(data),
+                    }
                 }
-            }
-        );
+            );
+        } catch {
+            toast.error('Ocorreu um erro ao enviar o e-mail de autenticação, tente novamente mais tarde.');
+        }
+
     }
 
     return (
@@ -51,7 +69,7 @@ export function SignIn() {
                     </div>
 
 
-                    <form onSubmit={handleSubmit(handleSignIn)} className="space-y-4">
+                    <form onSubmit={handleSubmit(handleSingIn)} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="email">Seu E-mail</Label>
                             <Input id="email" type="email" {...register('email')} />
